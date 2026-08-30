@@ -360,3 +360,36 @@ html, body {
 @keyframes pdCardReveal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pdSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pdFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Modal & Pop-up Styles */
+.pd-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(35, 48, 31, 0.85); backdrop-filter: blur(4px);
+  z-index: 100; display: flex; align-items: center; justify-content: center;
+  padding: 20px; opacity: 1; transition: opacity 0.3s ease;
+}
+.pd-modal-overlay.pd-hidden { opacity: 0; pointer-events: none; }
+.pd-modal-content {
+  width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto;
+  transform: translateY(0); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.pd-modal-overlay.pd-hidden .pd-modal-content { transform: translateY(20px); }
+
+/* Language Dropdown */
+.pd-lang-select {
+  font-family: var(--font-body); font-size: 14px; color: var(--ink);
+  background: var(--paper-dark); border: 1px solid var(--line);
+  border-radius: 4px; padding: 4px 8px; margin-right: 10px; cursor: pointer;
+}
+
+/* Treatment Section */
+.pd-treatment-box {
+  background: rgba(143, 169, 104, 0.15); padding: 16px; border-radius: 6px;
+  margin: 16px 0; border: 1px solid var(--lime);
+}
+.pd-treatment-title {
+  font-family: var(--font-mono); font-size: 12px; color: var(--moss-dark);
+  text-transform: uppercase; margin-bottom: 8px; font-weight: 600;
+}
+.pd-treatment-list ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.pd-treatment-list li { margin-bottom: 6px; }

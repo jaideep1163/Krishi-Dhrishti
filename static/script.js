@@ -10,11 +10,13 @@
   const uploadLabel = $('pdUploadLabel');
   const fileInput = $('pdFileInput');
   const errorBox = $('pdErrorBox');
-  const resultsBox = $('pdResults');
   const dateStamp = $('pdDateStamp');
+  const modalOverlay = $('pdModalOverlay');
+  const modalContent = $('pdModalContent');
 
   let stream = null;
   let activeBlob = null;
+  let currentDiagnosisData = null; // Store data to allow live language swapping
 
   if (dateStamp) {
     dateStamp.textContent = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -22,25 +24,19 @@
 
   const analyzingMessages = ['READING SYMPTOMS…', 'CHECKING LEAF SURFACE…', 'CROSS-REFERENCING PATTERNS…', 'ALMOST DONE…'];
 
-  function showError(msg) {
-    errorBox.innerHTML = `<div class="pd-error">${msg}</div>`;
-  }
+  function showError(msg) { errorBox.innerHTML = `<div class="pd-error">${msg}</div>`; }
   function clearError() { errorBox.innerHTML = ''; }
 
   function setIdleUI() {
-    video.classList.add('pd-hidden');
-    shotImg.classList.add('pd-hidden');
-    canvas.classList.add('pd-hidden');
+    video.classList.add('pd-hidden'); shotImg.classList.add('pd-hidden'); canvas.classList.add('pd-hidden');
     idleMsg.classList.remove('pd-hidden');
     controls.innerHTML = '<button class="pd-btn pd-btn-primary" id="pdMainBtn">Start camera</button>';
     document.getElementById('pdMainBtn').addEventListener('click', startCamera);
-    uploadLabel.style.display = 'inline-block';
+    uploadLabel.style.display = 'inline-block'; activeBlob = null; 
   }
 
   function setCameraUI() {
-    idleMsg.classList.add('pd-hidden');
-    shotImg.classList.add('pd-hidden');
-    video.classList.remove('pd-hidden');
+    idleMsg.classList.add('pd-hidden'); shotImg.classList.add('pd-hidden'); video.classList.remove('pd-hidden');
     controls.innerHTML = `
       <button class="pd-btn pd-btn-primary" id="pdCaptureBtn">Capture leaf</button>
       <button class="pd-btn pd-btn-ghost" id="pdStopBtn" title="Stop camera">✕</button>
@@ -51,9 +47,7 @@
   }
 
   function setCapturedUI() {
-    video.classList.add('pd-hidden');
-    idleMsg.classList.add('pd-hidden');
-    shotImg.classList.remove('pd-hidden');
+    video.classList.add('pd-hidden'); idleMsg.classList.add('pd-hidden'); shotImg.classList.remove('pd-hidden');
     controls.innerHTML = `
       <button class="pd-btn pd-btn-primary" id="pdAnalyzeBtn">Diagnose this leaf</button>
       <button class="pd-btn pd-btn-ghost" id="pdRetakeBtn" title="Retake">↺</button>
@@ -65,57 +59,33 @@
 
   async function startCamera() {
     clearError();
-    resultsBox.innerHTML = '';
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false
-      });
-      video.srcObject = stream;
-      setCameraUI();
-    } catch (err) {
-      showError("Couldn't access camera. Check permissions or upload a photo instead.");
-    }
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      video.srcObject = stream; setCameraUI();
+    } catch (err) { showError("Couldn't access camera. Check permissions or upload a photo."); }
   }
 
   function stopCamera() {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     setIdleUI();
   }
 
   function capturePhoto() {
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 800;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, w, h);
-    
+    const w = video.videoWidth || 640; const h = video.videoHeight || 800;
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0, w, h);
     canvas.toBlob((blob) => {
-      activeBlob = blob;
-      shotImg.src = URL.createObjectURL(blob);
+      activeBlob = blob; shotImg.src = URL.createObjectURL(blob);
       if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
       setCapturedUI();
     }, 'image/jpeg', 0.9);
   }
 
-  function retake() {
-    activeBlob = null;
-    resultsBox.innerHTML = '';
-    clearError();
-    startCamera();
-  }
+  function retake() { activeBlob = null; clearError(); startCamera(); }
 
   fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    clearError();
-    resultsBox.innerHTML = '';
-    activeBlob = file;
-    shotImg.src = URL.createObjectURL(file);
+    const file = e.target.files[0]; if (!file) return;
+    clearError(); activeBlob = file; shotImg.src = URL.createObjectURL(file);
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     setCapturedUI();
   });
@@ -123,98 +93,111 @@
 
   async function analyzeLeaf() {
     if (!activeBlob) return;
-    clearError();
-    resultsBox.innerHTML = '';
-    analyzingOverlay.classList.remove('pd-hidden');
+    clearError(); analyzingOverlay.classList.remove('pd-hidden');
     controls.querySelectorAll('button').forEach(b => b.disabled = true);
 
-    let msgIdx = 0;
-    analyzingText.textContent = analyzingMessages[0];
+    let msgIdx = 0; analyzingText.textContent = analyzingMessages[0];
     const msgInterval = setInterval(() => {
-      msgIdx = (msgIdx + 1) % analyzingMessages.length;
-      analyzingText.textContent = analyzingMessages[msgIdx];
+      msgIdx = (msgIdx + 1) % analyzingMessages.length; analyzingText.textContent = analyzingMessages[msgIdx];
     }, 1400);
 
-    const formData = new FormData();
-    formData.append('image', activeBlob, 'leaf.jpg');
+    const formData = new FormData(); formData.append('image', activeBlob, 'leaf.jpg');
 
     try {
-      const response = await fetch('/predict', {
-        method: 'POST',
-        body: formData
-      });
-
+      const response = await fetch('/predict', { method: 'POST', body: formData });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Diagnostic server error.');
-      renderResult(data);
+      
+      currentDiagnosisData = data;
+      renderModalUI('en'); // Default to English
     } catch (err) {
       showError(err.message || 'Diagnosis failed — check server connection and try again.');
     } finally {
-      clearInterval(msgInterval);
-      analyzingOverlay.classList.add('pd-hidden');
+      clearInterval(msgInterval); analyzingOverlay.classList.add('pd-hidden');
       controls.querySelectorAll('button').forEach(b => b.disabled = false);
     }
   }
 
-  function esc(s) {
-    const d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
-  }
+  function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
-  function renderResult(data) {
-    if (data.is_leaf === false) {
-      showError(data.message || 'No leaf detected in frame. Recenter the leaf and rescan.');
-      return;
-    }
+  // Re-renders the modal inner HTML based on chosen language
+  window.changeLanguage = function(lang) { renderModalUI(lang); }
+
+  function renderModalUI(langCode) {
+    const data = currentDiagnosisData;
+    if (data.is_leaf === false) { showError(data.message); return; }
 
     const uncertain = data.is_confident === false;
-    const label = uncertain ? 'Inconclusive' : (data.top_label ? data.top_label.replace(/_/g, ' ') : 'Unknown');
-    const healthy = !uncertain && label.toLowerCase().includes('healthy');
-    
-    let statusClass = 'sick';
-    if (uncertain) statusClass = 'uncertain';
-    else if (healthy) statusClass = 'healthy';
+    const isHealthy = !uncertain && data.raw_label.toLowerCase().includes('healthy');
+    const statusClass = uncertain ? 'uncertain' : (isHealthy ? 'healthy' : 'sick');
 
-    let breakdownHtml = '';
-    if (Array.isArray(data.breakdown) && data.breakdown.length > 0) {
-      breakdownHtml = `
-        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soil); margin-top: 14px;">Full Readout</div>
-        <ul class="pd-breakdown-list">
-          ${data.breakdown.map(b => `
-            <li class="pd-breakdown-item">
-              <span>${esc(b.label.replace(/_/g, ' '))}</span>
-              <span style="font-family: var(--font-mono); color: var(--soil);">${b.confidence.toFixed(1)}%</span>
-            </li>
-          `).join('')}
-        </ul>
-      `;
+    const localeData = data.locales[langCode];
+    const label = uncertain ? 'Inconclusive' : localeData.name;
+    const severityText = localeData.severity;
+
+    let tipsHtml = '';
+    if (localeData.tips && localeData.tips.length > 0) {
+      tipsHtml = `
+        <div class="pd-treatment-box">
+          <div class="pd-treatment-title">Recommended Action Plan</div>
+          <div class="pd-treatment-list">
+            <ul>${localeData.tips.map(tip => `<li>${esc(tip)}</li>`).join('')}</ul>
+          </div>
+        </div>`;
     }
 
     const html = `
-      <div class="pd-card">
-        <div class="pd-card-top">
-          <span>Specimen Card</span>
-          <span>${esc(dateStamp ? dateStamp.textContent : '')}</span>
+      <div class="pd-card" style="margin-top: 0; box-shadow: none;">
+        <div class="pd-card-top" style="align-items: center;">
+          <div>
+            <select id="pdLangSelector" class="pd-lang-select" onchange="window.changeLanguage(this.value)">
+              <option value="en" ${langCode === 'en' ? 'selected' : ''}>English</option>
+              <option value="hi" ${langCode === 'hi' ? 'selected' : ''}>हिंदी</option>
+              <option value="kn" ${langCode === 'kn' ? 'selected' : ''}>ಕನ್ನಡ</option>
+            </select>
+          </div>
+          <button class="pd-btn-ghost" id="pdCloseModalBtn" style="width: auto; padding: 0 10px; min-height: 30px; font-size: 14px;">Close</button>
         </div>
         <p class="pd-plant-name">${esc(label)}</p>
         <div class="pd-status-row">
           <span class="pd-status-dot ${statusClass}"></span>
-          <span class="pd-status-text ${statusClass}">${uncertain ? 'Uncertain Match' : (healthy ? 'Healthy Leaf' : 'Pathology Identified')}</span>
-          <span class="pd-confidence">${data.top_confidence ? data.top_confidence.toFixed(1) : 0}% confidence</span>
+          <span class="pd-status-text ${statusClass}">${esc(severityText)} Severity</span>
+          <span class="pd-confidence">${data.top_confidence ? data.top_confidence.toFixed(1) : 0}%</span>
         </div>
-        ${data.message ? `<p style="font-size: 13.5px; line-height: 1.5; color: var(--soil); margin: 10px 0;">${esc(data.message)}</p>` : ''}
-        ${breakdownHtml}
-        <div class="pd-disclaimer">Visual assessment only, not a lab diagnosis. For high-value crops, confirm with a local agricultural extension office.</div>
+        
+        ${tipsHtml}
+        
+        <div class="pd-controls" style="margin-top: 20px;">
+          <button class="pd-btn pd-btn-primary" id="pdSpeakBtn">🔊 Listen</button>
+        </div>
       </div>
-      <button class="pd-btn pd-btn-primary pd-scan-again" id="pdScanAgainBtn">Scan another leaf</button>
     `;
 
-    resultsBox.innerHTML = html;
-    document.getElementById('pdScanAgainBtn').addEventListener('click', () => {
-      activeBlob = null;
-      resultsBox.innerHTML = '';
+    modalContent.innerHTML = html;
+    modalOverlay.classList.remove('pd-hidden');
+
+    document.getElementById('pdCloseModalBtn').addEventListener('click', () => {
+      modalOverlay.classList.add('pd-hidden');
+      if('speechSynthesis' in window) window.speechSynthesis.cancel();
       setIdleUI();
+    });
+
+    document.getElementById('pdSpeakBtn').addEventListener('click', () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        // Construct the localized audio string
+        const textToRead = `${localeData.name}. ${localeData.tips ? localeData.tips.join(' ') : ''}`;
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        
+        // Map UI lang codes to actual BCP 47 language tags for TTS
+        const langMap = { 'en': 'en-IN', 'hi': 'hi-IN', 'kn': 'kn-IN' };
+        utterance.lang = langMap[langCode];
+        utterance.rate = 0.9;
+        
+        window.speechSynthesis.speak(utterance);
+      } else {
+        alert("Audio readout isn't supported on this browser.");
+      }
     });
   }
 
