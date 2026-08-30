@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leaf Scanner — Rice Disease Diagnostic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="field-texture" aria-hidden="true"></div>
+
+<main class="wrap">
+  <header class="masthead">
+    <span class="eyebrow">HAND‑HELD FIELD DIAGNOSTIC</span>
+    <h1>Leaf Scanner</h1>
+    <p class="sub">Photograph a rice leaf. The scanner reads the surface pattern and reports the likely disease, with confidence, in seconds.</p>
+  </header>
+
+  <section class="scanner-card">
+
+    <div id="dropzone" class="viewfinder" tabindex="0" role="button" aria-label="Upload a rice leaf photo">
+      <div class="bracket tl"></div>
+      <div class="bracket tr"></div>
+      <div class="bracket bl"></div>
+      <div class="bracket br"></div>
+
+      <div id="scanline" class="scanline" aria-hidden="true"></div>
+
+      <div id="vf-empty" class="vf-state">
+        <svg class="leaf-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 52C12 30 28 12 52 12C52 36 34 52 12 52Z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M13 51C22 40 30 30 51 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <p class="vf-label">Drop a leaf photo here</p>
+        <p class="vf-sub">or tap to choose a file · JPG, PNG, WEBP</p>
+      </div>
+
+      <img id="vf-preview" class="vf-preview" alt="" hidden>
+
+      <div id="vf-loading" class="vf-state" hidden>
+        <p class="vf-label mono">READING SURFACE…</p>
+      </div>
+
+      <input id="fileInput" type="file" accept="image/png, image/jpeg, image/webp, image/bmp" hidden>
+    </div>
+
+    <button id="scanAnother" class="ghost-btn" hidden>Scan another leaf</button>
+
+    <div id="result" class="result" hidden>
+      <div class="result-head">
+        <span class="eyebrow small" id="result-kicker">DIAGNOSIS</span>
+        <h2 id="result-label">—</h2>
+      </div>
+
+      <div class="confidence-row">
+        <span class="mono confidence-num" id="result-confidence">0%</span>
+        <span class="confidence-caption">confidence</span>
+      </div>
+      <div class="meter"><div class="meter-fill" id="meter-fill"></div></div>
+
+      <div class="breakdown">
+        <span class="breakdown-title mono">FULL READOUT</span>
+        <ul id="breakdown-list"></ul>
+      </div>
+    </div>
+
+    <div id="errorBox" class="error-box" hidden></div>
+
+  </section>
+
+  <footer class="foot">
+    <span>Not a substitute for lab confirmation on high-value crops.</span>
+  </footer>
+</main>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
